@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -8,6 +9,7 @@ from scipy.optimize import bisect
 import os
 import sys
 
+NUMERO_ETAPAS = 4
 MUESTREO_APROXIMACION = 20
 
 
@@ -55,9 +57,9 @@ def graficar(X_N, Y_N, M_acum, R_acum, E_acum, n):
     for i in range(n):
         plt.plot([R_acum[i][0], E_acum[i][0]], [R_acum[i][1], E_acum[i][1]], "go-")
         plt.plot(M_acum[i][0], M_acum[i][1], "ro")
-        plt.text(R_acum[i][0] + 0.01, R_acum[i][1], f"$R_{i+1}$")
-        plt.text(E_acum[i][0] + 0.01, E_acum[i][1], f"$E_{i+1}$")
-        plt.text(M_acum[i][0] + 0.01, M_acum[i][1], f"$M_{i+1}$")
+        plt.text(R_acum[i][0] + 0.01, R_acum[i][1], f"$R_{{{i+1}}}$")
+        plt.text(E_acum[i][0] + 0.01, E_acum[i][1], f"$E_{{{i+1}}}$")
+        plt.text(M_acum[i][0] + 0.01, M_acum[i][1], f"$M_{{{i+1}}}$")
     plt.xlabel("Fracción molar")
     plt.ylabel("N")
     plt.tick_params(axis='both', labelsize=6)
@@ -86,6 +88,7 @@ def graficar(X_N, Y_N, M_acum, R_acum, E_acum, n):
 
 
 def calcular_s_prima(S):
+    """Calcula la masa de solvente efectivo s' a partir del solvente S."""
     return S["masa"] / (1 + S["ns"])
 
 
@@ -119,7 +122,10 @@ def aproximar(M, X_N, Y_N):
         if f(a) * f(b) < 0:
             break
         a = b
-    x_opt = bisect(f, a, b)
+    try:
+        x_opt = bisect(f, a, b)
+    except ValueError as e:
+        raise RuntimeError(f"No se pudo encontrar raíz entre {a} y {b}") from e
     return x_opt, f_X_Nr(x_opt), f_X_Y(x_opt), f_X_Y_Ne(x_opt)
 
 
@@ -180,8 +186,11 @@ def liq_liq_n_etapas(n: int):
     
   
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--etapas", type=int, default=NUMERO_ETAPAS, help="Número de etapas")
+    args = parser.parse_args()
     establecer_tkinter()
-    liq_liq_n_etapas(4)
+    liq_liq_n_etapas(args.etapas)
 
 
 if __name__ == "__main__":
