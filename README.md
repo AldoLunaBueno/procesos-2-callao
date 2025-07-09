@@ -31,3 +31,11 @@ Si no instalaste Tkinter junto con Python, verás un error como este:
 La solución es volver a instalar Python, pero incluyendo el paquete de Tkinter seleccionando la casilla correspondiente en el instalador.
 
 Para verificar que tienes correctamente instalado Tkinter, puedes ejecutar `python -m tkinter` en Windows o `python3 -m tkinter` en Linux/MacOS. Si no sale error, está bien instalado.
+
+## Controlar el programa
+
+Podemos ajustar el número de etapas añadiendo el flag `-n` al comando de ejecución:
+
+```bash
+python main.py -n <número de etapas>
+```
