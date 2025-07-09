@@ -23,6 +23,30 @@ def ingesta_datos():
     return fase_oleica, fase_propano
 
 
+def cargar_parametros(path="parametros_liq_liq.txt"):
+    df = pd.read_csv(path)
+    params = dict(zip(df["clave"], df["valor"]))
+
+    # Reconstruir los diccionarios originales
+    F = {
+        "masa": float(params["F_masa"]),
+        "xf": float(params["F_xf"]),
+        "nf": float(params["F_nf"]),
+    }
+    S = {
+        "masa": float(params["S_masa"]),
+        "ys": float(params["S_ys"]),
+        "ns": float(params["S_ns"]),
+    }
+    solvente = {
+        "A": float(params["solvente_A"]),
+        "B": float(params["solvente_B"]),
+        "C": float(params["solvente_C"]),
+    }
+    temp = float(params["temp"])
+    return temp, F, S, solvente
+
+
 def graficar(X_N, Y_N, M_acum, R_acum, E_acum, n):
     # Graficar X vs N y Y vs N
     plt.subplot(2, 1, 1)
@@ -102,6 +126,7 @@ def aproximar(M, X_N, Y_N):
 def liq_liq_n_etapas(n: int):
     # datos experimentales
     fase_oleica, fase_propano = ingesta_datos()
+    
     X_oleica = fase_oleica["C"] / (fase_oleica["A"] + fase_oleica["C"])
     N_oleica = fase_oleica["B"] / (fase_oleica["A"] + fase_oleica["C"])
     X_N = pd.DataFrame({"X": X_oleica, "N": N_oleica})
@@ -110,12 +135,15 @@ def liq_liq_n_etapas(n: int):
     N_propano = fase_propano["B"] / (fase_propano["A"] + fase_propano["C"])
     Y_N = pd.DataFrame({"Y": Y_propano, "N": N_propano})
     
-    # datos del problema
-    temp = 98.3  # grados centígrados
-    F = {"masa": 100, "xf": 0.5, "nf": 0}  # se actualiza en cada iteración
-    S = {"masa": 1500, "ys": 0.1, "ns": 49}  # constante en todas las iteraciones
+    # cargar parámetros desde archivo
+    temp, F, S, solvente = cargar_parametros("parametros_liq_liq.txt")
     # A: aceite, B: propano, C: ac. oleico
-    solvente = {"A": 0.018, "B": 0.98, "C": 0.002}
+    # F se actualiza en cada iteración
+    # S es constante en todas las iteraciones
+    
+    # validación del solvente
+    assert abs(solvente["A"] + solvente["B"] + solvente["C"] - 1) < 1e-3, "Composición del solvente no suma 1"
+
     M_acum = []
     R_acum = []
     E_acum = []
