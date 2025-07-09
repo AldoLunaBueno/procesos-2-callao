@@ -17,13 +17,14 @@ def ingesta_datos():
     
     return fase_oleica, fase_propano
 
-def graficar(X_N, Y_N, M, R, E):
+def graficar(X_N, Y_N, M_acum, R_acum, E_acum, n):
     # Graficar X vs N y Y vs N
     plt.subplot(2, 1, 1)
     plt.plot(X_N["X"], X_N["N"], "m.-", label="X vs Nr")
     plt.plot(Y_N["Y"], Y_N["N"], "b.-", label="Y vs Ne")
-    plt.plot([R[0], E[0]], [R[1], E[1]], "go-")
-    plt.plot(M[0], M[1], "ro")
+    for i in range(n):
+        plt.plot([R_acum[i][0], E_acum[i][0]], [R_acum[i][1], E_acum[i][1]], "go-")
+        plt.plot(M_acum[i][0], M_acum[i][1], "ro")
     plt.xlabel("Fracción molar")
     plt.ylabel("N")
     plt.legend()
@@ -41,16 +42,18 @@ def graficar(X_N, Y_N, M, R, E):
     os.makedirs("diagramas", exist_ok=True)
     plt.savefig("diagramas/fig-1.png") 
     plt.show()
+    
+def calcular_s_prima(S):
+    return S["masa"] / (1 + S["ns"])
 
-def etapa(f, xf, nf, s, ys, ns):
-    s_ = s / (1 + ns)
-    xm = (f * xf + s_ * ys) / (f + s_)
-    nm = (f * nf + s_ * ns) / (f + s_)
+def calcular_M(F, S):
+    s_ = calcular_s_prima(S)
+    xm = (F["masa"] * F["xf"] + s_ * S["ys"]) / (F["masa"] + s_)
+    nm = (F["masa"] * F["nf"] + s_ * S["ns"]) / (F["masa"] + s_)
     
     return xm, nm
 
 def aproximar(M, X_N, Y_N):
-    xm, nm = M
     # interpolaciones lineales (por defecto)
     f_X_Nr = interp1d(X_N["X"], X_N["N"], fill_value="extrapolate")
     f_Y_Ne = interp1d(Y_N["Y"], Y_N["N"], fill_value="extrapolate")
@@ -59,14 +62,14 @@ def aproximar(M, X_N, Y_N):
     
     def f(x):
         cuerda = interp1d([x, f_X_Y(x)], [f_X_Nr(x), f_X_Y_Ne(x)], fill_value="extrapolate")
-        nm_ = cuerda(xm)
-        return nm_ - nm
+        nm_ = cuerda(M["xm"])
+        return nm_ - M["nm"]
     
     x_opt = bisect(f, 0.1, 0.9)
     return x_opt, f_X_Nr(x_opt), f_X_Y(x_opt), f_X_Y_Ne(x_opt)
 
 
-def liq_liq_1_etapa():
+def liq_liq_n_etapas(n: int):
     # datos experimentales
     fase_oleica, fase_propano = ingesta_datos()
     X_oleica = fase_oleica["C"] / (fase_oleica["A"] + fase_oleica["C"])
@@ -78,30 +81,37 @@ def liq_liq_1_etapa():
     Y_N = pd.DataFrame({"Y": Y_propano, "N": N_propano})
     
     # datos del problema
-    f = 100  # kilogramos
-    xf = 0.5  # porcentaje
-    nf = 0
     temp = 98.3  # grados centígrados
-    
-    solvente = {"propano": 0.98, "aceite": 0.018, "oleico": 0.002}
-    s1 = 1500
-    s2 = 1500
-    
-    ys1 = 0.1
-    ns1 = 49
-    
-    xm1, nm1 = etapa(f, xf, nf, s1, ys1, ns1) # etapa 1
-    M1 = [xm1, nm1]
-    print(M1)
-    x1, nr1, y1, ne1 = aproximar(M1, X_N, Y_N)
-    R1 = [x1, nr1]
-    E1 = [y1, ne1]
-    graficar(X_N, Y_N, M1, R1, E1)
+    F = {"masa": 100, "xf": 0.5, "nf": 0}
+    S = {"masa": 1500, "ys": 0.1, "ns": 49}
+    # A: aceite, B: propano, C: ac. oleico
+    solvente = {"A": 0.018, "B": 0.98, "C": 0.002}
+    M_acum = []
+    R_acum = []
+    E_acum = []
+    for i in range(n):        
+        Xm, Nm = calcular_M(F, S)
+        s_ = calcular_s_prima(S)
+        M =  {"masa": F["masa"] + s_, "xm": Xm, "nm": Nm}
+        X, Nr, Y, Ne = aproximar(M, X_N, Y_N)
+        masa_r_prima = M["masa"] * (Y - M["xm"]) / (Y - X)
+        masa_e_prima = M["masa"] * (M["xm"] - X) / (Y - X)
+        masa_e = masa_e_prima * (1 + Ne)
+        # y = Y / (1 + Ne)
+        # x = X / (1 + Nr)
+        F = {"masa": masa_r_prima, "xf": X, "nf": Nr}  # R
+        R = [X, Nr]
+        E = [Y, Ne]
+        M_acum.append([M["xm"], M["nm"]])
+        R_acum.append(R)
+        E_acum.append(E)
+
+    graficar(X_N, Y_N, M_acum, R_acum, E_acum, n)
     
   
 def main():
     establecer_tkinter()
-    liq_liq_1_etapa()
+    liq_liq_n_etapas(2)
 
 
 if __name__ == "__main__":
