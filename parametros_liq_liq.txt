@@ -1,11 +1,8 @@
 clave,valor
-temp,98.3
-F_masa,100
+F_masa,100.0
 F_xf,0.5
-F_nf,0
-S_masa,1500
-S_ys,0.1
-S_ns,49
-solvente_A,0.018
-solvente_B,0.98
-solvente_C,0.002
+F_nf,0.0
+S_masa,1500.0
+A_aceite,0.018
+B_propano,0.98
+C_oleico,0.002

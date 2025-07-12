@@ -2,7 +2,7 @@
 
 ## Ejecutar el programa
 
-Nuestro programa se puede ejecutar en Windows o en Linux/MacOS. Solo necesitas Python instalado (versión >=3.9) con el complemento Tkinter para poder generar las gráficas.
+Nuestro programa se puede ejecutar en Windows o en Linux/MacOS. Solo necesitas Python instalado (versión 3.9) con el complemento Tkinter para poder generar las gráficas.
 
 ### En Windows
 
@@ -39,3 +39,5 @@ Podemos ajustar el número de etapas añadiendo el flag `-n` al comando de ejecu
 ```bash
 python main.py -n <número de etapas>
 ```
+
+python -m PyInstaller main_gui.py --noconsole --onefile --hidden-import=tkinter --add-data "fase_oleica.txt;." --add-data "fase_propano.txt;." --add-data "parametros_liq_liq.txt;." --add-data "C:\Users\USER\AppData\Local\Programs\Python\Python39\tcl\tcl8.6;tcl\tcl8.6" --add-data "C:\Users\USER\AppData\Local\Programs\Python\Python39\tcl\tk8.6;tcl\tk8.6"

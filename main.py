@@ -12,6 +12,12 @@ import sys
 NUMERO_ETAPAS = 4
 MUESTREO_APROXIMACION = 20
 
+def resource_path(relative_path):
+    """Devuelve la ruta absoluta a un recurso, compatible con PyInstaller."""
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
 
 def establecer_tkinter():
     os.environ["TCL_LIBRARY"] = os.path.join(sys.base_prefix, "tcl", "tcl8.6")
@@ -19,38 +25,38 @@ def establecer_tkinter():
 
 
 def ingesta_datos():
-    fase_oleica = pd.read_table("fase_oleica.txt", decimal=",")
-    fase_propano = pd.read_table("fase_propano.txt", decimal=",")
+    fase_oleica = pd.read_table(resource_path("fase_oleica.txt"), decimal=",")
+    fase_propano = pd.read_table(resource_path("fase_propano.txt"), decimal=",")
     
     return fase_oleica, fase_propano
 
 
 def cargar_parametros(path="parametros_liq_liq.txt"):
-    df = pd.read_csv(path)
+    df = pd.read_csv(resource_path(path))
     params = dict(zip(df["clave"], df["valor"]))
 
-    # Reconstruir los diccionarios originales
+    # reconstruir los diccionarios originales
     F = {
         "masa": float(params["F_masa"]),
         "xf": float(params["F_xf"]),
         "nf": float(params["F_nf"]),
     }
-    S = {
-        "masa": float(params["S_masa"]),
-        "ys": float(params["S_ys"]),
-        "ns": float(params["S_ns"]),
-    }
+    S_masa = params["S_masa"]
+    
     solvente = {
-        "A": float(params["solvente_A"]),
-        "B": float(params["solvente_B"]),
-        "C": float(params["solvente_C"]),
+        "A": float(params["A_aceite"]),
+        "B": float(params["B_propano"]),
+        "C": float(params["C_oleico"]),
     }
-    temp = float(params["temp"])
-    return temp, F, S, solvente
+    return F, S_masa, solvente
 
 
-def graficar(X_N, Y_N, M_acum, R_acum, E_acum, n):
-    # Graficar X vs N y Y vs N
+def graficar(X_N, Y_N, M_acum, R_acum, E_acum, n):  
+    fig = plt.gcf()  # obtener figura actual
+    plt.clf()  # limpiar gráficos
+    fig.canvas.manager.set_window_title("Diagramas")  # cambiar título
+    
+    # graficar X vs N y Y vs N
     plt.subplot(2, 1, 1)
     plt.plot(X_N["X"], X_N["N"], "m.-", label="X vs Nr")
     plt.plot(Y_N["Y"], Y_N["N"], "b.-", label="Y vs Ne")
@@ -64,11 +70,11 @@ def graficar(X_N, Y_N, M_acum, R_acum, E_acum, n):
     plt.ylabel("N")
     plt.tick_params(axis='both', labelsize=6)
     plt.legend()
-    # Número de ticks en los ejes
+    # número de ticks en los ejes
     plt.gca().xaxis.set_major_locator(MaxNLocator(nbins=12))
     plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=12))
 
-    # Graficar X vs Y
+    # graficar X vs Y
     plt.subplot(2, 1, 2)
     plt.plot(X_N["X"], Y_N["Y"], "c.-", label="X vs Y")
     plt.xlabel("X")
@@ -76,15 +82,15 @@ def graficar(X_N, Y_N, M_acum, R_acum, E_acum, n):
     plt.plot([0, 1], [0, 1], "k:")
     plt.tick_params(axis='both', labelsize=6)
     plt.legend()
-    # Número de ticks en los ejes
+    # múmero de ticks en los ejes
     plt.gca().xaxis.set_major_locator(MaxNLocator(nbins=12))
     plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=12))
     
-    # Mostrar y guardar el diagrama
+    # mostrar y guardar el diagrama
     plt.tight_layout()
     os.makedirs("diagramas", exist_ok=True)
     plt.savefig("diagramas/fig-1.png")
-    plt.show()
+    plt.show(block=False)
 
 
 def calcular_s_prima(S):
@@ -129,7 +135,7 @@ def aproximar(M, X_N, Y_N):
     return x_opt, f_X_Nr(x_opt), f_X_Y(x_opt), f_X_Y_Ne(x_opt)
 
 
-def liq_liq_n_etapas(n: int):
+def liq_liq_n_etapas(n: int, F=None, S_masa=None, solvente=None):
     # datos experimentales
     fase_oleica, fase_propano = ingesta_datos()
     
@@ -140,16 +146,20 @@ def liq_liq_n_etapas(n: int):
     Y_propano = fase_propano["C"] / (fase_propano["A"] + fase_propano["C"])
     N_propano = fase_propano["B"] / (fase_propano["A"] + fase_propano["C"])
     Y_N = pd.DataFrame({"Y": Y_propano, "N": N_propano})
-    
-    # cargar parámetros desde archivo
-    temp, F, S, solvente = cargar_parametros("parametros_liq_liq.txt")
+
     # A: aceite, B: propano, C: ac. oleico
     # F se actualiza en cada iteración
     # S es constante en todas las iteraciones
+    if F is None or S_masa is None or solvente is None:
+        F, S_masa, solvente = cargar_parametros("parametros_liq_liq.txt")
     
     # validación del solvente
     assert abs(solvente["A"] + solvente["B"] + solvente["C"] - 1) < 1e-3, "Composición del solvente no suma 1"
 
+    S_ys = solvente["C"] / (solvente["A"] + solvente["C"])
+    S_ns = solvente["B"] / (solvente["A"] + solvente["C"])
+    S = {"masa": S_masa, "ys": S_ys, "ns": S_ns}
+    
     M_acum = []
     R_acum = []
     E_acum = []
@@ -174,23 +184,24 @@ def liq_liq_n_etapas(n: int):
         E_masa.append(masa_e)
         y_acum.append(y)
 
-    # resultados en consola
-    print(f"Cantidad de etapas: {n}")
-    E_compuesto = sum(E_masa)
-    print(f"E compuesto: {E_compuesto}")
-    y_compuesto = (sum([e*y for e, y in zip(E_masa, y_acum)])) / E_compuesto
-    print(f"y compuesto: {y_compuesto}")
-    
     # diagramas
     graficar(X_N, Y_N, M_acum, R_acum, E_acum, n)
     
+    E_compuesto = sum(E_masa)
+    y_compuesto = (sum([e*y for e, y in zip(E_masa, y_acum)])) / E_compuesto
+    return E_compuesto, y_compuesto
   
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--etapas", type=int, default=NUMERO_ETAPAS, help="Número de etapas")
     args = parser.parse_args()
     establecer_tkinter()
-    liq_liq_n_etapas(args.etapas)
+    E_compuesto, y_compuesto = liq_liq_n_etapas(args.etapas)
+    
+    # resultados en consola
+    print(f"Cantidad de etapas: {args.etapas}")
+    print(f"E compuesto: {E_compuesto}")
+    print(f"y compuesto: {y_compuesto}")
 
 
 if __name__ == "__main__":
